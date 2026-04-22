@@ -1,0 +1,330 @@
+
+<!-- 
+TO DO:
+- Improve / create the throughput of information / results to the python script. => Would later be part of Qualtrics of course
+
+Fixed / Irrelevant
+- Somehow making it possible to drag your mouse to swab? => Only maybe when we use a single, static picture rather than a panorama
+- Get my own panorama in there. => Launch localhost in python by typing "python -m http.server 8000" in a terminal with wd in right folder, then launch the deelstudie code from there
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>360 Crime Scene Swab Tool</title>
+
+  <!-- Pannellum -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.js"></script>
+
+  <style>
+    body { font-family: Georgia; text-align: center; }
+
+    #panorama {
+      width: 1100px;
+      height: 525px;
+      margin: auto;
+    }
+
+    .marker {
+      width: 14px;
+      height: 14px;
+      background: rgb(199, 188, 188);
+      border-radius: 50%;
+      border: 2px solid white;
+      opacity: 0.9;
+    }
+
+    .selected {
+      background: blue !important;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Klik in de afbeelding op een locatie waar u een bemonstering zou willen nemen.</h3>
+
+<div id="panorama"></div>
+
+<br>
+
+<button onclick="testSelected()">Test de bemonstering</button>
+<button onclick="RemoveSwab()">Verwijder de bemonstering</button>
+<button onclick="Showresults()">Einde onderzoek</button>
+<p id="result"></p>
+
+<script>
+// For storing the data and user behaviour
+let eventLog = []
+let starttime = Date.now()
+
+function logEvent(type, details = {}) {
+  eventLog.push({
+    type: type, 
+    time: Date.now() - starttime,
+    ...details
+  });
+}
+
+// For overlapping swabbing detection
+let too_close = false; 
+
+function getDynamicThreshold() {
+  const hfov = viewer.getHfov();
+  const baseThreshold = 1.5;
+  return baseThreshold * Math.sqrt(hfov / 100);
+}
+
+// General variables
+let swabs = [];
+let selectedIndex = null;
+let testing_sample = null;
+
+// INIT PANORAMA
+const viewer = pannellum.viewer('panorama', {
+  type: 'equirectangular',
+  //panorama: 'https://pannellum.org/images/alma.jpg',
+  panorama: 'Bar_Scene.jpg', // ← replace with your 360 image
+  autoLoad: true,
+});
+
+// CLICK → ADD SWAB
+let startX = 0;
+let startY = 0;
+let isDragging = false;
+
+const threshold = 5; // pixels (tweak if needed)
+
+const panoEl = document.getElementById('panorama');
+
+// MOUSEDOWN → record starting point
+panoEl.addEventListener('mousedown', function(e) {
+  startX = e.clientX;
+  startY = e.clientY;
+  isDragging = false;
+});
+
+// MOUSEMOVE → detect drag
+panoEl.addEventListener('mousemove', function(e) {
+  const dx = Math.abs(e.clientX - startX);
+  const dy = Math.abs(e.clientY - startY);
+
+  if (dx > threshold || dy > threshold) {
+    isDragging = true;
+  }
+});
+
+// MOUSEUP → decide click vs drag
+panoEl.addEventListener('mouseup', function(e) {
+  if (isDragging) return; // ignore drags
+
+  //Ignore clicks on UI controls
+  if (e.target.closest('.pnlm-controls')) {return};
+
+  const coords = viewer.mouseEventToCoords(e);
+
+  const swab = {
+    pitch: coords[0],
+    yaw: coords[1],
+    result: null
+  };
+
+  // Preventing sampling too close so that selecting a previous swap becomes a challenge
+  const swab_overlap_threshold = getDynamicThreshold();
+
+  for (let i = 0; i < swabs.length; i++) {
+    const dist = angularDistance(swab, swabs[i]);
+
+    if (dist < swab_overlap_threshold) {
+      too_close = true;
+      selectSwab(swabs[i].hotspotID);
+      return;
+    }
+  }
+
+  function angularDistance(a, b) {
+  const toRad = deg => deg * Math.PI / 180;
+
+  const pitch1 = toRad(a.pitch);
+  const yaw1 = toRad(a.yaw);
+  const pitch2 = toRad(b.pitch);
+  const yaw2 = toRad(b.yaw);
+
+  const dYaw = yaw2 - yaw1;
+
+  const angle = Math.acos(
+    Math.sin(pitch1) * Math.sin(pitch2) +
+    Math.cos(pitch1) * Math.cos(pitch2) * Math.cos(dYaw)
+  );
+
+  return angle * (180 / Math.PI); // back to degrees
+}
+
+  if (!too_close){
+    swabs.push(swab);
+    drawMarker(swabs.length - 1);
+  }
+
+  // Reset all markers
+  document.querySelectorAll('.marker').forEach(m => {
+    m.classList.remove('selected');
+  });
+
+  //Resetting variables
+  selectedIndex = null;
+  too_close = false
+});
+
+// DRAW MARKER
+function drawMarker(index, redrawing=false) {
+  const swab = swabs[index];
+
+  const hotspotID = "swab-" + index;
+  swab.hotspotID = hotspotID;
+
+  if (!redrawing){
+    logEvent("add_swab", {
+      id: swab.hotspotID,
+      pitch: swab.pitch,
+      yaw: swab.yaw
+    });
+  }
+
+  viewer.addHotSpot({
+    id: hotspotID,
+    pitch: swab.pitch,
+    yaw: swab.yaw,
+    cssClass: 'marker',
+    createTooltipFunc: function(hotSpotDiv) {
+      hotSpotDiv.onclick = function(e) {
+        e.stopPropagation(); // prevent adding a new swab underneath
+        selectSwab(hotspotID);
+      };
+    }
+  });
+}
+
+
+// SELECT SWAB
+function selectSwab(hotspotID) {
+  const id = hotspotID
+  selectedIndex = swabs.findIndex(function (swab) {return swab.hotspotID == id});
+
+  // Reset all markers
+  document.querySelectorAll('.marker').forEach(m => {
+    m.classList.remove('selected');
+  });
+
+  // Highlight selected
+  document.querySelectorAll('.marker')[selectedIndex].classList.add('selected');
+}
+
+// REMOVE SWAB
+function RemoveSwab(){
+  if (selectedIndex === null){
+    alert("Selecteer eerst een bemonstering.");
+    return;
+  }
+
+  const swab = swabs[selectedIndex];
+
+  //Prevent the removal of a swab that is currently being tested
+  if (swab.hotspotID === testing_sample) {
+    alert("U kunt een sample die momenteel wordt geanalyseerd niet verwijderen.");
+    return;
+  }
+
+  //Removing the swab from the list
+  swabs.splice(selectedIndex, 1);
+
+  //Reset selection
+  selectedIndex = null;
+
+  // Rebuild all markers 
+  redrawAllMarkers();
+  
+  logEvent("remove_swab", {
+    id: swab.hotspotID
+  });
+}
+
+//Redraw markers after deleting a swab
+function redrawAllMarkers() {
+  // Remove all existing markers
+  document.querySelectorAll('.marker').forEach(m => m.remove());
+  
+  // Re-adding the markers
+  swabs.forEach((swab, index) => {
+    drawMarker(index, redrawing=true)
+  })
+}
+
+// TEST SWAB
+function testSelected() {
+  if (selectedIndex === null) {
+    alert("Selecteer eerst een bemonstering");
+    return;
+  }
+
+  const result = "onvoldoende DNA";
+
+  swabs[selectedIndex].result = result;
+  swab = swabs[selectedIndex]
+  testing_sample = swab.hotspotID
+
+  logEvent("test_swab", {
+    id: swab.hotspotID,
+    result: swab.result
+  });
+
+  let time = 7;
+  let dots = 1;
+  let dot = ".";
+  document.getElementById("result").innerText = "Swab " + (selectedIndex + 1) + " wordt geanalyseerd"
+
+  let CountDown = setInterval(function () {
+    document.getElementById("result").innerText = "Swab " + (selectedIndex + 1) + " wordt geanalyseerd" + dot.repeat(dots);
+    time--;
+    dots++;
+
+    if (time < 0) {
+      clearInterval(CountDown)
+      document.getElementById("result").innerText =
+      "Resultaat: Swab " + (selectedIndex + 1) + " bevat " + result;
+      testing_sample = null;
+    }
+  }, 1000)
+}
+
+function Showresults() {
+  for (let i = 0; i < swabs.length; i++) {
+    console.log(swabs[i])
+  }
+
+  for (let i = 0; i < eventLog.length; i++) {
+    console.log(eventLog[i])
+  }
+}
+
+function sendDataToQualtrics() {
+  if (window.parent && window.parent.Qualtrics) {
+
+    // Final swabs (for heatmap)
+    window.parent.Qualtrics.SurveyEngine.setEmbeddedData(
+      "finalSwabs",
+      JSON.stringify(swabs)
+    );
+
+    // Event log (for process analysis)
+    window.parent.Qualtrics.SurveyEngine.setEmbeddedData(
+      "eventLog",
+      JSON.stringify(eventLog)
+    );
+  }
+}
+
+</script>
+
+</body>
+</html>
