@@ -324,6 +324,20 @@ function sendDataToQualtrics() {
   }
 }
 
+// Listen for request from Qualtrics
+window.addEventListener("message", function(event) {
+  if (event.data === "requestData") {
+
+    const payload = {
+      eventLog: eventLog,
+      finalSwabs: swabs
+    };
+
+    // Send data back to Qualtrics
+    window.parent.postMessage(payload, "*");
+  }
+});
+  
 </script>
 
 </body>
