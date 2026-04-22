@@ -1,13 +1,3 @@
-
-<!-- 
-TO DO:
-- Improve / create the throughput of information / results to the python script. => Would later be part of Qualtrics of course
-
-Fixed / Irrelevant
-- Somehow making it possible to drag your mouse to swab? => Only maybe when we use a single, static picture rather than a panorama
-- Get my own panorama in there. => Launch localhost in python by typing "python -m http.server 8000" in a terminal with wd in right folder, then launch the deelstudie code from there
--->
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -218,6 +208,9 @@ function selectSwab(hotspotID) {
 
   // Highlight selected
   document.querySelectorAll('.marker')[selectedIndex].classList.add('selected');
+
+  // Reset the too close var
+  too_close = false
 }
 
 // REMOVE SWAB
