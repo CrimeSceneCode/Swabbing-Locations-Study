@@ -333,7 +333,8 @@ window.addEventListener("message", function(event) {
       finalSwabs: swabs
     };
 
-    // Send data back to Qualtrics
+    console.log("SENDING DATA:", payload); // 👈 ADD THIS
+
     window.parent.postMessage(payload, "*");
   }
 });
