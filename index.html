@@ -179,6 +179,7 @@ function drawMarker(index, redrawing=false) {
       pitch: swab.pitch,
       yaw: swab.yaw
     });
+    sendDataToQualtrics();
   }
 
   viewer.addHotSpot({
@@ -240,6 +241,8 @@ function RemoveSwab(){
   logEvent("remove_swab", {
     id: swab.hotspotID
   });
+  
+  sendDataToQualtrics();
 }
 
 //Redraw markers after deleting a swab
@@ -270,6 +273,8 @@ function testSelected() {
     id: swab.hotspotID,
     result: swab.result
   });
+
+  sendDataToQualtrics();
 
   let time = 7;
   let dots = 1;
