@@ -301,36 +301,13 @@ function Showresults() {
 }
 
 function sendDataToQualtrics() {
-  if (window.parent && window.parent.Qualtrics) {
+  const payload = {
+    eventLog: eventLog,
+    finalSwabs: swabs
+  };
 
-    // Final swabs (for heatmap)
-    window.parent.Qualtrics.SurveyEngine.setEmbeddedData(
-      "finalSwabs",
-      JSON.stringify(swabs)
-    );
-
-    // Event log (for process analysis)
-    window.parent.Qualtrics.SurveyEngine.setEmbeddedData(
-      "eventLog",
-      JSON.stringify(eventLog)
-    );
-  }
+  window.parent.postMessage(payload, "*");
 }
-
-// Listen for request from Qualtrics
-window.addEventListener("message", function(event) {
-  if (event.data === "requestData") {
-
-    const payload = {
-      eventLog: eventLog,
-      finalSwabs: swabs
-    };
-
-    console.log("SENDING DATA:", payload); // 👈 ADD THIS
-
-    window.parent.postMessage(payload, "*");
-  }
-});
   
 </script>
 
