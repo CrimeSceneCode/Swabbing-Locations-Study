@@ -12,8 +12,8 @@
     body { font-family: Georgia; text-align: center; }
 
     #panorama {
-      width: 1100px;
-      height: 525px;
+      width: 900px;
+      height: 450px;
       margin: auto;
     }
 
@@ -33,15 +33,11 @@
 </head>
 <body>
 
-<h3>Klik in de afbeelding op een locatie waar u een bemonstering zou willen nemen.</h3>
+<h3>Klik in de afbeelding op een locatie waar u een bemonstering zou nemen.</h3>
 
 <div id="panorama"></div>
 
 <br>
-
-<button onclick="testSelected()">Test de bemonstering</button>
-<button onclick="RemoveSwab()">Verwijder de bemonstering</button>
-<button onclick="Showresults()">Einde onderzoek</button>
 <p id="result"></p>
 
 <script>
@@ -70,13 +66,52 @@ function getDynamicThreshold() {
 let swabs = [];
 let selectedIndex = null;
 let testing_sample = null;
+let swab_number = 1;
 
 // INIT PANORAMA
 const viewer = pannellum.viewer('panorama', {
   type: 'equirectangular',
-  //panorama: 'https://pannellum.org/images/alma.jpg',
-  panorama: 'Bar_Scene.jpg', // ← replace with your 360 image
+  panorama: 'Bar_Scene.jpg',
   autoLoad: true,
+});
+
+viewer.on('load', function () {
+  const panoContainer = document.getElementById('panorama');
+
+  // Create a wrapper that sits on top of the viewer
+  const customControls = document.createElement('div');
+  customControls.style.position = 'absolute';
+  customControls.style.top = '100px';
+  customControls.style.left = '5px';
+  customControls.style.display = 'flex';
+  customControls.style.flexDirection = 'column';
+  customControls.style.gap = '6px';
+  customControls.style.zIndex = '1000';
+  customControls.className = 'custom-controls';
+
+  // --- Buttons ---
+  const testBtn = document.createElement('button');
+  testBtn.innerText = '🧪';
+  testBtn.onclick = testSelected;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.innerText = '🗑';
+  removeBtn.onclick = RequestRemoveSwab;
+
+  // Style
+  [testBtn, removeBtn].forEach(btn => {
+    btn.style.padding = '6px';
+    btn.style.background = 'rgba(0,0,0,0.6)';
+    btn.style.color = 'white';
+    btn.style.border = '1px solid white';
+    btn.style.cursor = 'pointer';
+  });
+
+  customControls.appendChild(testBtn);
+  customControls.appendChild(removeBtn);
+  
+  panoContainer.style.position = 'relative';
+  panoContainer.appendChild(customControls);
 });
 
 // CLICK → ADD SWAB
@@ -110,14 +145,15 @@ panoEl.addEventListener('mouseup', function(e) {
   if (isDragging) return; // ignore drags
 
   //Ignore clicks on UI controls
-  if (e.target.closest('.pnlm-controls')) {return};
+  if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox")) {return};
 
   const coords = viewer.mouseEventToCoords(e);
 
   const swab = {
     pitch: coords[0],
     yaw: coords[1],
-    result: null
+    result: null,
+    swabNum: swab_number,
   };
 
   // Preventing sampling too close so that selecting a previous swap becomes a challenge
@@ -154,12 +190,17 @@ panoEl.addEventListener('mouseup', function(e) {
   if (!too_close){
     swabs.push(swab);
     drawMarker(swabs.length - 1);
+    swab_number = swab_number + 1
   }
 
   // Reset all markers
   document.querySelectorAll('.marker').forEach(m => {
     m.classList.remove('selected');
   });
+
+  if (!testing_sample){
+    document.getElementById("result").innerText = ""
+  }
 
   //Resetting variables
   selectedIndex = null;
@@ -179,13 +220,13 @@ function drawMarker(index, redrawing=false) {
       pitch: swab.pitch,
       yaw: swab.yaw
     });
-   
   }
 
   viewer.addHotSpot({
     id: hotspotID,
     pitch: swab.pitch,
     yaw: swab.yaw,
+    swabNum: swab_number,
     cssClass: 'marker',
     createTooltipFunc: function(hotSpotDiv) {
       hotSpotDiv.onclick = function(e) {
@@ -210,12 +251,20 @@ function selectSwab(hotspotID) {
   // Highlight selected
   document.querySelectorAll('.marker')[selectedIndex].classList.add('selected');
 
-  // Reset the too close var
+  // Show swab information
+  swab = swabs[selectedIndex]
+  if (swab.result){
+    document.getElementById("result").innerText = "Swab " + swab.swabNum + " - " + swab.result
+  } else {
+    document.getElementById("result").innerText = "Swab " + swab.swabNum
+  }
+
+  // Reset the too close variable
   too_close = false
 }
 
 // REMOVE SWAB
-function RemoveSwab(){
+function RequestRemoveSwab(){
   if (selectedIndex === null){
     alert("Selecteer eerst een bemonstering.");
     return;
@@ -229,18 +278,97 @@ function RemoveSwab(){
     return;
   }
 
-  //Removing the swab from the list
+  showRemovalOptions(swab);
+}
+
+function showRemovalOptions(swab) {
+  // Prevent duplicates
+  const existing = document.getElementById("removeModal");
+  if (existing) existing.remove();
+
+  // --- Overlay (dark background) ---
+  const overlay = document.createElement("div");
+  overlay.id = "removeModal";
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100vw";
+  overlay.style.height = "100vh";
+  overlay.style.background = "rgba(0,0,0,0.5)";
+  overlay.style.display = "block";
+  overlay.style.position = "absolute";
+  overlay.style.zIndex = "3000";
+
+  // --- Modal box ---
+  const modal = document.createElement("div");
+  modal.style.background = "white";
+  modal.style.padding = "10px";
+  modal.style.borderRadius = "10px";
+  modal.style.textAlign = "center";
+  modal.style.minWidth = "300px";
+  modal.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
+  modal.style.position = "absolute";
+  modal.style.top = "20px";
+  modal.style.left = "50%";
+  modal.style.transform = "translateX(-50%)";
+
+  const text = document.createElement("p");
+  text.innerText = "Verwijdert u deze bemonstering omdat\nhet plaatsen ervan niet gewenst was?";
+
+  // --- Buttons ---
+  const btnMisplaced = document.createElement("button");
+  btnMisplaced.innerText = "Ja";
+  btnMisplaced.style.margin = "5px";
+  btnMisplaced.onclick = function() {
+    confirmRemoveSwab(swab, "misplaced");
+  };
+
+  const btnIrrelevant = document.createElement("button");
+  btnIrrelevant.innerText = "Nee";
+  btnIrrelevant.style.margin = "5px";
+  btnIrrelevant.onclick = function() {
+    confirmRemoveSwab(swab, "post_test");
+  };
+
+  // Optional cancel button
+  const btnCancel = document.createElement("button");
+  btnCancel.innerText = "Annuleren";
+  btnCancel.style.margin = "5px";
+  btnCancel.onclick = function() {
+    overlay.remove();
+  };
+
+  modal.appendChild(text);
+  modal.appendChild(btnMisplaced);
+  modal.appendChild(btnCancel);
+  modal.appendChild(btnIrrelevant);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Prevent clicks from reaching panorama
+  overlay.addEventListener('mousedown', e => e.stopPropagation());
+  overlay.addEventListener('mouseup', e => e.stopPropagation());
+}
+
+
+function confirmRemoveSwab(swab, reason) {
+  // Remove from array, reset and redraw
   swabs.splice(selectedIndex, 1);
-
-  //Reset selection
   selectedIndex = null;
-
-  // Rebuild all markers 
   redrawAllMarkers();
-  
+
+  // Logging the activity
   logEvent("remove_swab", {
-    id: swab.hotspotID
+    id: swab.hotspotID,
+    reason: reason,
+    result: swab.result
   });
+
+  // Remove UI
+  const overlay = document.getElementById("removeModal");
+  if (overlay) overlay.remove();
+  document.getElementById("result").innerText = ""
 }
 
 //Redraw markers after deleting a swab
@@ -261,6 +389,11 @@ function testSelected() {
     return;
   }
 
+  if (testing_sample) {
+    alert("Er wordt momenteel al een sample geanalyseerd.");
+    return;
+  }
+
   const result = "onvoldoende DNA";
 
   swabs[selectedIndex].result = result;
@@ -275,17 +408,17 @@ function testSelected() {
   let time = 7;
   let dots = 1;
   let dot = ".";
-  document.getElementById("result").innerText = "Swab " + (selectedIndex + 1) + " wordt geanalyseerd"
+  document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd"
 
   let CountDown = setInterval(function () {
-    document.getElementById("result").innerText = "Swab " + (selectedIndex + 1) + " wordt geanalyseerd" + dot.repeat(dots);
+    document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd" + dot.repeat(dots);
     time--;
     dots++;
 
     if (time < 0) {
       clearInterval(CountDown)
       document.getElementById("result").innerText =
-      "Resultaat: Swab " + (selectedIndex + 1) + " bevat " + result;
+      "Resultaat: Swab " + swab.swabNum + " bevat " + result;
       testing_sample = null;
     }
   }, 1000)
@@ -327,12 +460,10 @@ window.addEventListener("message", function(event) {
       finalSwabs: swabs
     };
 
-    console.log("SENDING DATA:", payload); // 👈 ADD THIS
-
+    // Send data back to Qualtrics
     window.parent.postMessage(payload, "*");
   }
 });
-  
 </script>
 
 </body>
