@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>360 Crime Scene Swab Tool</title>
+  <title>Crime Scene</title>
 
   <!-- Pannellum -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.css"/>
@@ -12,25 +12,40 @@
     body { font-family: Georgia; text-align: center; }
 
     #panorama {
-      width: calc(100vw - 320px);
-      height: calc(100vh - 220px);
-      
-      aspect-ratio: 2/1;
+      width: calc(100vw - 320px);   
+      height: calc(100vh - 220px); 
+
+      aspect-ratio: 2 / 1;
       margin: auto;
     }
 
     .marker {
       width: 14px;
       height: 14px;
-      background: rgb(199, 188, 188);
       border-radius: 50%;
       border: 2px solid white;
       opacity: 0.9;
+      transition: background 0.1s linear;
+      background: linear-gradient(
+        to top,
+        orange 0%,
+        orange calc(var(--progress, 0) * 1%),
+        rgb(199, 188, 188) calc(var(--progress, 0) * 1%),
+        rgb(199, 188, 188) 100%
+      );
+
+      overflow: hidden;
+
     }
 
     .selected {
       background: blue !important;
     }
+
+    .tested {
+      background: red !important;
+    }
+
   </style>
 </head>
 <body>
@@ -40,6 +55,7 @@
 <div id="panorama"></div>
 
 <br>
+<button onclick="Showresults()">Einde onderzoek</button>
 <p id="result"></p>
 
 <script>
@@ -73,8 +89,8 @@ let swab_number = 1;
 // INIT PANORAMA
 const viewer = pannellum.viewer('panorama', {
   type: 'equirectangular',
-  panorama: 'Bar_Scene.jpg',
   autoLoad: true,
+  panorama: 'Bar_Scene.jpg', 
 });
 
 viewer.on('load', function () {
@@ -83,7 +99,7 @@ viewer.on('load', function () {
   // Create a wrapper that sits on top of the viewer
   const customControls = document.createElement('div');
   customControls.style.position = 'absolute';
-  customControls.style.top = '100px';
+  customControls.style.top = '100px'; // push BELOW zoom/fullscreen buttons
   customControls.style.left = '5px';
   customControls.style.display = 'flex';
   customControls.style.flexDirection = 'column';
@@ -100,7 +116,7 @@ viewer.on('load', function () {
   removeBtn.innerText = '🗑';
   removeBtn.onclick = RequestRemoveSwab;
 
-  // Style
+  // Style (optional but helps readability)
   [testBtn, removeBtn].forEach(btn => {
     btn.style.padding = '6px';
     btn.style.background = 'rgba(0,0,0,0.6)';
@@ -111,7 +127,8 @@ viewer.on('load', function () {
 
   customControls.appendChild(testBtn);
   customControls.appendChild(removeBtn);
-  
+
+  // IMPORTANT: make parent relative so absolute positioning works
   panoContainer.style.position = 'relative';
   panoContainer.appendChild(customControls);
 });
@@ -155,7 +172,7 @@ panoEl.addEventListener('mouseup', function(e) {
     pitch: coords[0],
     yaw: coords[1],
     result: null,
-    swabNum: swab_number,
+    swabNum: swab_number
   };
 
   // Preventing sampling too close so that selecting a previous swap becomes a challenge
@@ -170,6 +187,7 @@ panoEl.addEventListener('mouseup', function(e) {
       return;
     }
   }
+
 
   function angularDistance(a, b) {
   const toRad = deg => deg * Math.PI / 180;
@@ -254,13 +272,14 @@ function selectSwab(hotspotID) {
   document.querySelectorAll('.marker')[selectedIndex].classList.add('selected');
 
   // Show swab information
-  swab = swabs[selectedIndex]
-  if (swab.result){
-    document.getElementById("result").innerText = "Swab " + swab.swabNum + " - " + swab.result
-  } else {
-    document.getElementById("result").innerText = "Swab " + swab.swabNum
+  if (!testing_sample){
+    swab = swabs[selectedIndex]
+    if (swab.result){
+       document.getElementById("result").innerText = "Swab " + swab.swabNum + " - " + swab.result
+    } else {
+       document.getElementById("result").innerText = "Swab " + swab.swabNum
+    }
   }
-
   // Reset the too close variable
   too_close = false
 }
@@ -315,18 +334,18 @@ function showRemovalOptions(swab) {
   modal.style.transform = "translateX(-50%)";
 
   const text = document.createElement("p");
-  text.innerText = "Verwijdert u deze bemonstering omdat\nhet plaatsen ervan niet gewenst was?";
+  text.innerText = "Ik verwijder deze bemonstering omdat deze:";
 
   // --- Buttons ---
   const btnMisplaced = document.createElement("button");
-  btnMisplaced.innerText = "Ja";
+  btnMisplaced.innerText = "Verkeerd geplaatst was";
   btnMisplaced.style.margin = "5px";
   btnMisplaced.onclick = function() {
     confirmRemoveSwab(swab, "misplaced");
   };
 
   const btnIrrelevant = document.createElement("button");
-  btnIrrelevant.innerText = "Nee";
+  btnIrrelevant.innerText = "Niet wordt veiliggesteld";
   btnIrrelevant.style.margin = "5px";
   btnIrrelevant.onclick = function() {
     confirmRemoveSwab(swab, "post_test");
@@ -407,21 +426,31 @@ function testSelected() {
     result: swab.result
   });
 
-  let time = 7;
+  let totalTime = 7;
+  let time = totalTime;
   let dots = 1;
   let dot = ".";
+
   document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd"
 
+  const tested_marker = document.querySelectorAll('.marker')[selectedIndex];
+  tested_marker.style.setProperty('--progress', 0);
+  tested_marker.classList.remove('selected')
+
   let CountDown = setInterval(function () {
+    let progress = ((totalTime - time + 1) / totalTime) * 100;
+    tested_marker.style.setProperty('--progress', progress);
+    
     document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd" + dot.repeat(dots);
     time--;
     dots++;
 
     if (time < 0) {
       clearInterval(CountDown)
-      document.getElementById("result").innerText =
-      "Resultaat: Swab " + swab.swabNum + " bevat " + result;
+
+      document.getElementById("result").innerText = "Resultaat: Swab " + swab.swabNum + " bevat " + result;
       testing_sample = null;
+      tested_marker.classList.add('tested');
     }
   }, 1000)
 }
@@ -436,36 +465,6 @@ function Showresults() {
   }
 }
 
-function sendDataToQualtrics() {
-  if (window.parent && window.parent.Qualtrics) {
-
-    // Final swabs (for heatmap)
-    window.parent.Qualtrics.SurveyEngine.setEmbeddedData(
-      "finalSwabs",
-      JSON.stringify(swabs)
-    );
-
-    // Event log (for process analysis)
-    window.parent.Qualtrics.SurveyEngine.setEmbeddedData(
-      "eventLog",
-      JSON.stringify(eventLog)
-    );
-  }
-}
-
-// Listen for request from Qualtrics
-window.addEventListener("message", function(event) {
-  if (event.data === "requestData") {
-
-    const payload = {
-      eventLog: eventLog,
-      finalSwabs: swabs
-    };
-
-    // Send data back to Qualtrics
-    window.parent.postMessage(payload, "*");
-  }
-});
 </script>
 
 </body>
