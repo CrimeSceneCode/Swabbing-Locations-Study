@@ -12,7 +12,7 @@
     body { font-family: Georgia; text-align: center; }
 
     #panorama {
-      width: calc(100vw - 320px);   
+      width: calc(100vw - 320px);
       height: calc(100vh - 220px); 
 
       aspect-ratio: 2 / 1;
@@ -22,9 +22,13 @@
     .marker {
       width: 14px;
       height: 14px;
+      background: rgb(199, 188, 188);
       border-radius: 50%;
       border: 2px solid white;
       opacity: 0.9;
+    }
+
+    .testing {
       transition: background 0.1s linear;
       background: linear-gradient(
         to top,
@@ -39,12 +43,9 @@
     }
 
     .selected {
-      background: blue !important;
+      border: 2px solid blue;
     }
 
-    .tested {
-      background: red !important;
-    }
 
   </style>
 </head>
@@ -90,7 +91,7 @@ let swab_number = 1;
 const viewer = pannellum.viewer('panorama', {
   type: 'equirectangular',
   autoLoad: true,
-  panorama: 'Bar_Scene.jpg', 
+  panorama: 'Bar_Scene.jpg',   
 });
 
 viewer.on('load', function () {
@@ -99,7 +100,7 @@ viewer.on('load', function () {
   // Create a wrapper that sits on top of the viewer
   const customControls = document.createElement('div');
   customControls.style.position = 'absolute';
-  customControls.style.top = '100px'; // push BELOW zoom/fullscreen buttons
+  customControls.style.top = '100px';
   customControls.style.left = '5px';
   customControls.style.display = 'flex';
   customControls.style.flexDirection = 'column';
@@ -415,12 +416,18 @@ function testSelected() {
     return;
   }
 
-  const result = "onvoldoende DNA";
-
-  swabs[selectedIndex].result = result;
   swab = swabs[selectedIndex]
   testing_sample = swab.hotspotID
+  
+  if (swab.result != null) {
+    alert("Dat monster is al geanalyseerd en bevat onvoldoende DNA.");
+    return;
+  }
+  
+  const result = "Onvoldoende DNA";
+  swab.result = result;
 
+  
   logEvent("test_swab", {
     id: swab.hotspotID,
     result: swab.result
@@ -434,8 +441,8 @@ function testSelected() {
   document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd"
 
   const tested_marker = document.querySelectorAll('.marker')[selectedIndex];
+  tested_marker.classList.add('testing');
   tested_marker.style.setProperty('--progress', 0);
-  tested_marker.classList.remove('selected')
 
   let CountDown = setInterval(function () {
     let progress = ((totalTime - time + 1) / totalTime) * 100;
@@ -450,7 +457,8 @@ function testSelected() {
 
       document.getElementById("result").innerText = "Resultaat: Swab " + swab.swabNum + " bevat " + result;
       testing_sample = null;
-      tested_marker.classList.add('tested');
+      tested_marker.classList.remove('testing');
+      tested_marker.classList.add('marker');
     }
   }, 1000)
 }
@@ -464,7 +472,6 @@ function Showresults() {
     console.log(eventLog[i])
   }
 }
-
 </script>
 
 </body>
