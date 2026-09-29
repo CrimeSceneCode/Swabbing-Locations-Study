@@ -2,12 +2,13 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Crime Scene</title>
+  <title>Plaats delict</title>
 
   <!-- Pannellum -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.css"/>
   <script src="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.js"></script>
-
+  <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
+  
   <style>
     body { font-family: Georgia; text-align: center; }
 
@@ -46,6 +47,45 @@
       border: 2px solid blue;
     }
 
+    /* Image popup */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+    }
+
+    .modal-content {
+      background: white;
+      margin: auto auto;
+      padding: 10px;
+      width: fit-content;
+      border-radius: 10px;
+      position: relative;
+    }
+
+    #modalImage {
+      max-width: 100%;
+      max-height: 90vh;
+      display: block;
+    }
+
+    #closeModal {
+      position: absolute;
+      left: 10px;
+      top: 3px;
+      font-size: 25px;
+      cursor: pointer;
+    }
+
+    #imageContainer {
+      position: relative;
+      display: block;
+    }
 
   </style>
 </head>
@@ -55,13 +95,39 @@
 
 <div id="panorama"></div>
 
+<div id="imageModal" class="modal">
+  <div class="modal-content">
+    <span id="closeModal">&times;</span>
+
+    <h2 id="imageTitle"></h2>
+
+    <div id="imageContainer" style="overflow:hidden;">
+      <img id="modalImage" src="" alt="">
+    </div>
+  </div>
+</div>
+
 <br>
 <p id="result"></p>
 
 <script>
+// For zooming in on the close up pictures
+const image = document.getElementById("modalImage");
+
+const panzoom = Panzoom(image, {
+    maxScale: 6,
+    minScale: 1,
+    contain: "outside"
+});
+
+document.getElementById("imageContainer")
+    .addEventListener("wheel", panzoom.zoomWithWheel);
+
+
 // For storing the data and user behaviour
 let eventLog = []
 let starttime = Date.now()
+let RemainingTests = 6
 
 function logEvent(type, details = {}) {
   eventLog.push({
@@ -88,10 +154,81 @@ let swab_number = 1;
 
 // INIT PANORAMA
 const viewer = pannellum.viewer('panorama', {
-  type: 'equirectangular',
-  autoLoad: true,
-  panorama: 'Bar_Scene.jpg',   
+  "default": {
+    firstScene: "360-degree",
+    sceneFadeDuration: 1000,
+    autoLoad: true
+  },
+
+  "scenes": {
+    "360-degree": {
+      "yaw": 200,
+      "pitch": -20,
+      "hfov": 150,
+      "type": "equirectangular",
+      "panorama": "Bar_Scene.jpg",
+    }
+  }
+  });
+
+viewer.addHotSpot({
+  id: 'Window',
+  pitch: 26,
+  yaw: 77,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "Bar_Scene.jpg",
+    id: 'Window'
+  }
 });
+
+viewer.on("load", function () {
+  logEvent("sessionStart", {
+  yaw: viewer.getYaw(),
+  pitch: viewer.getPitch(),
+  hfov: viewer.getHfov()
+  });
+})
+
+function showImage(event, args) {
+    const modal = document.getElementById("imageModal");
+    const image = document.getElementById("modalImage");
+
+    modal.style.display = "block";
+
+    image.src = args.image;
+    image.dataset.image = args.image;
+    modal.dataset.hotspotId = args.id;
+
+    logEvent("openCloseUp", {
+        id: args.id,
+    });
+}
+
+function closeImage() {
+    const modal = document.getElementById("imageModal");
+
+    logEvent("closeCloseUp", {
+        id: modal.dataset.hotspotId
+    });
+
+    modal.style.display = "none";
+}
+
+document.getElementById("closeModal").onclick = function () {
+    closeImage();
+};
+
+window.onclick = function(event) {
+    const modal = document.getElementById("imageModal");
+
+    if (event.target === modal) {
+        closeImage();
+    }
+};
+
+let testBtn;
 
 viewer.on('load', function () {
   const panoContainer = document.getElementById('panorama');
@@ -99,7 +236,7 @@ viewer.on('load', function () {
   // Create a wrapper that sits on top of the viewer
   const customControls = document.createElement('div');
   customControls.style.position = 'absolute';
-  customControls.style.top = '100px';
+  customControls.style.top = '100px'; // push BELOW zoom/fullscreen buttons
   customControls.style.left = '5px';
   customControls.style.display = 'flex';
   customControls.style.flexDirection = 'column';
@@ -108,8 +245,8 @@ viewer.on('load', function () {
   customControls.className = 'custom-controls';
 
   // --- Buttons ---
-  const testBtn = document.createElement('button');
-  testBtn.innerText = '🧪';
+  testBtn = document.createElement('button');
+  testBtn.innerText = '🧪  ' + RemainingTests;
   testBtn.onclick = testSelected;
 
   const removeBtn = document.createElement('button');
@@ -164,7 +301,7 @@ panoEl.addEventListener('mouseup', function(e) {
   if (isDragging) return; // ignore drags
 
   //Ignore clicks on UI controls
-  if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox")) {return};
+  if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox") || e.target.closest(".pnlm-hotspot")) {return};
 
   const coords = viewer.mouseEventToCoords(e);
 
@@ -415,6 +552,11 @@ function testSelected() {
     return;
   }
 
+  if (RemainingTests === 0) {
+    alert("U heeft alle beschikbare sneltesten al gebruikt.");
+    return;
+  }
+
   swab = swabs[selectedIndex]
   testing_sample = swab.hotspotID
   
@@ -423,9 +565,11 @@ function testSelected() {
     return;
   }
   
+  RemainingTests = RemainingTests - 1;
+  testBtn.innerText = '🧪  ' + RemainingTests
+  
   const result = "onvoldoende DNA";
   swab.result = result;
-
   
   logEvent("test_swab", {
     id: swab.hotspotID,
@@ -472,6 +616,83 @@ function Showresults() {
   }
 }
 
+// Search / interaction tracking
+let lastView = {
+    yaw: viewer.getYaw(),
+    pitch: viewer.getPitch(),
+    hfov: viewer.getHfov()
+};
+
+// Minimum movement before we consider it meaningful
+const YAW_THRESHOLD = 2;
+const PITCH_THRESHOLD = 2;
+const HFOV_THRESHOLD = 2;
+
+
+// Check whether the participant has moved/zoomed
+function trackViewChange() {
+    const currentView = {
+        yaw: viewer.getYaw(),
+        pitch: viewer.getPitch(),
+        hfov: viewer.getHfov()
+    };
+
+    const deltaYaw = getYawDifference(currentView.yaw, lastView.yaw)
+    const deltaPitch = currentView.pitch - lastView.pitch;
+    const deltaHfov = currentView.hfov - lastView.hfov;
+
+    const yawChanged = Math.abs(deltaYaw) >= YAW_THRESHOLD;
+    const pitchChanged = Math.abs(deltaPitch) >= PITCH_THRESHOLD;
+    const hfovChanged = Math.abs(deltaHfov) >= HFOV_THRESHOLD;
+
+    // Nothing meaningful changed
+    if (!yawChanged && !pitchChanged && !hfovChanged) {
+        return;
+    }
+
+    // Determine what the participant did
+    let action;
+
+    if (hfovChanged && !yawChanged && !pitchChanged) {
+        action = "zoom";
+    } else {
+        action = "pan";
+    }
+
+    // Record the event
+    logEvent(action, {
+
+        // Current camera position
+        yaw: currentView.yaw,
+        pitch: currentView.pitch,
+        hfov: currentView.hfov,
+
+        // How much it changed since the previous event
+        deltaYaw: deltaYaw,
+        deltaPitch: deltaPitch,
+        deltaHfov: deltaHfov
+    });
+
+    lastView = currentView;
+}
+
+setInterval(trackViewChange, 250);
+
+//Taking the pannellum wrap into account, where 179 goes to -179. 
+function getYawDifference(current, previous) {
+    let difference = current - previous;
+
+    if (difference > 180) {
+        difference -= 360;
+    }
+
+    if (difference < -180) {
+        difference += 360;
+    }
+
+    return difference;
+}
+
 // Listen for request from Qualtrics
 window.addEventListener("message", function(event) {
   if (event.data === "requestData") {
@@ -485,7 +706,6 @@ window.addEventListener("message", function(event) {
     window.parent.postMessage(payload, "*");
   }
 });
-  
 </script>
 
 </body>
