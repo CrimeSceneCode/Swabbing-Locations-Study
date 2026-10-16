@@ -12,21 +12,25 @@
   <style>
     body { font-family: Georgia; text-align: center; }
 
-    #panorama {
-      width: calc(100vw - 100px);
-      height: calc(100vh - 100px); 
+    .marker {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        background: rgb(199, 188, 188);
+        border-radius: 50%;
+        border: 2px solid white;
+        opacity: 0.9;
+        cursor: pointer;
+      }
 
-      aspect-ratio: 2 / 1;
-      margin: auto;
+    .closeup-marker {
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      box-sizing: border-box;
     }
 
-    .marker {
-      width: 14px;
-      height: 14px;
-      background: rgb(199, 188, 188);
-      border-radius: 50%;
-      border: 2px solid white;
-      opacity: 0.9;
+    .marker.selected {
+        border: 2px solid blue;
     }
 
     .testing {
@@ -40,51 +44,106 @@
       );
 
       overflow: hidden;
-
     }
 
-    .selected {
-      border: 2px solid blue;
+    #panorama {
+        width: calc(100vw - 100px);
+        height: calc(100vh - 100px);
+        aspect-ratio: 2 / 1;
+        margin: auto;
+        position: relative;
     }
 
-    /* Image popup */
     .modal {
-      display: none;
-      position: fixed;
-      z-index: 9999;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.8);
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 110px;
+        right: 110px;
+        top: 26px;
+        bottom: 75px;
+        background: rgba(0,0,0,0.8);
     }
 
     .modal-content {
-      background: white;
-      margin: auto auto;
-      padding: 10px;
-      width: fit-content;
-      border-radius: 10px;
-      position: relative;
+        position: relative;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        background: white;
+        padding: 35px 2px 2px 2px;
+        border-radius: 10px;
+    }
+
+    .image-container {
+        position: relative;
+        display: inline-block;
+      }
+      
+      #imageLayer {
+        position: relative;
+        display: inline-block;
     }
 
     #modalImage {
-      max-width: 100%;
-      max-height: 90vh;
-      display: block;
+        max-width: 100%;
+        max-height: 90vh;
+        display: block;
+        cursor: grab;
     }
+
+    #modalImage:active {cursor: grabbing;}
 
     #closeModal {
-      position: absolute;
-      left: 10px;
-      top: 3px;
-      font-size: 25px;
-      cursor: pointer;
+        position: absolute;
+        left: 10px;
+        top: 3px;
+        font-size: 25px;
+        cursor: pointer;
+        line-height: 1;
     }
 
-    #imageContainer {
-      position: relative;
-      display: block;
+    #caseInfoModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.8);
+
+    align-items: center;
+    justify-content: center;
+    }
+
+    .case-info-box {
+        position: relative;
+        background: white;
+        color: #222;
+        width: min(700px, 90vw);
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 30px;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    .close-button {
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        font-size: 28px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    #caseInfoContent {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        line-height: 1.6;
     }
 
   </style>
@@ -93,18 +152,36 @@
 
 <br>
 
-<div id="panorama"></div>
+<div id="panorama" tabindex="0"></div>
 
 <div id="imageModal" class="modal">
   <div class="modal-content">
-    <span id="closeModal">&times;</span>
+    <span class="close" id="closeModal">&times;</span>
 
-    <h2 id="imageTitle"></h2>
+    <h2 id="imageTitle"></h2> 
 
-    <div id="imageContainer" style="overflow:hidden;">
-      <img id="modalImage" src="" alt="">
+    <div id="imageContainer" style="overflow:hidden;" class="image-container">
+      <div id="imageLayer">
+        <img id="modalImage" src="" alt="">
+      </div>
+
     </div>
   </div>
+</div>
+
+<div id="caseInfoModal" class="modal">
+    <div class="case-info-box">
+        <button id="closeCaseInfo" class="close-button">
+            &times;
+        </button>
+
+        <h2>Zaaksinformatie</h2>
+
+        <div id="caseInfoContent">
+          <p>Test. 
+          </p>
+        </div>
+    </div>
 </div>
 
 <br>
@@ -112,7 +189,7 @@
 
 <script>
 // For zooming in on the close up pictures
-const image = document.getElementById("modalImage");
+const image = document.getElementById("imageLayer");
 
 const panzoom = Panzoom(image, {
     maxScale: 6,
@@ -125,9 +202,10 @@ document.getElementById("imageContainer")
 
 
 // For storing the data and user behaviour
-let eventLog = []
-let starttime = Date.now()
-let RemainingTests = 6
+let eventLog = [];
+let starttime = Date.now();
+let RemainingTests = 6;
+let selectedSwab = null;
 
 function logEvent(type, details = {}) {
   eventLog.push({
@@ -162,19 +240,67 @@ const viewer = pannellum.viewer('panorama', {
 
   "scenes": {
     "360-degree": {
-      "yaw": 200,
-      "pitch": -20,
+      "yaw": 111,
+      "pitch": -21,
       "hfov": 150,
       "type": "equirectangular",
       "panorama": "Bar_Scene.jpg",
-    }
+    },
   }
   });
 
 viewer.addHotSpot({
+  id: 'topDrawers',
+  pitch: -26,
+  yaw: 112,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "Bar_Scene.jpg",
+    id: 'topDrawers'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'middleDrawers',
+  pitch: -31,
+  yaw: 112,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "Bar_Scene.jpg",
+    id: 'middleDrawers'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'bottomDrawers',
+  pitch: -36,
+  yaw: 112,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "Bar_Scene.jpg",
+    id: 'bottomDrawers'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'Door',
+  pitch: 4,
+  yaw: 89,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "Bar_Scene.jpg",
+    id: 'Door'
+  }
+});
+
+viewer.addHotSpot({
   id: 'Window',
-  pitch: 26,
-  yaw: 77,
+  pitch: 6,
+  yaw: 14,
   type: "info",
   clickHandlerFunc: showImage,
   clickHandlerArgs: {
@@ -191,6 +317,9 @@ viewer.on("load", function () {
   });
 })
 
+const panorama = document.getElementById("panorama");
+panorama.focus();
+
 function showImage(event, args) {
     const modal = document.getElementById("imageModal");
     const image = document.getElementById("modalImage");
@@ -200,6 +329,16 @@ function showImage(event, args) {
     image.src = args.image;
     image.dataset.image = args.image;
     modal.dataset.hotspotId = args.id;
+    closeUpID = args.id;
+
+    const markers = document.querySelectorAll(".closeup-marker");
+    markers.forEach(marker => {
+        if (marker.dataset.pictureID === closeUpID) {
+            marker.style.display = "block";
+        } else {
+            marker.style.display = "none";
+        }
+    });
 
     logEvent("openCloseUp", {
         id: args.id,
@@ -208,12 +347,17 @@ function showImage(event, args) {
 
 function closeImage() {
     const modal = document.getElementById("imageModal");
+    const panorama = document.getElementById("panorama");
 
     logEvent("closeCloseUp", {
         id: modal.dataset.hotspotId
     });
 
     modal.style.display = "none";
+
+    //Return focus to the panorama
+    panorama.focus();
+    panzoom.reset();
 }
 
 document.getElementById("closeModal").onclick = function () {
@@ -253,8 +397,12 @@ viewer.on('load', function () {
   removeBtn.innerText = '🗑';
   removeBtn.onclick = RequestRemoveSwab;
 
+  caseInfoBtn = document.createElement("button");
+  caseInfoBtn.innerText = "🗎";
+  caseInfoBtn.onclick = displayCaseInfo;
+
   // Style (optional but helps readability)
-  [testBtn, removeBtn].forEach(btn => {
+  [testBtn, removeBtn, caseInfoBtn].forEach(btn => {
     btn.style.padding = '6px';
     btn.style.background = 'rgba(0,0,0,0.6)';
     btn.style.color = 'white';
@@ -264,11 +412,35 @@ viewer.on('load', function () {
 
   customControls.appendChild(testBtn);
   customControls.appendChild(removeBtn);
+  customControls.appendChild(caseInfoBtn);
 
   // IMPORTANT: make parent relative so absolute positioning works
   panoContainer.style.position = 'relative';
   panoContainer.appendChild(customControls);
 });
+
+//Displaying the case info
+function displayCaseInfo() {
+  const caseInfoModal = document.getElementById("caseInfoModal");
+  caseInfoModal.style.display = "flex";
+
+  //Logging the opening of the case info
+  logEvent("Open case file info");
+
+  //Adding the close button functionality
+  document.getElementById("closeCaseInfo").addEventListener("click", () => {
+      caseInfoModal.style.display = "none";
+      panorama.focus();
+      logEvent("Close case file info");
+  });
+
+  caseInfoModal.addEventListener("click", (event) => {
+      if (event.target === caseInfoModal) {
+          caseInfoModal.style.display = "none";
+          panorama.focus();
+      }
+  });
+}
 
 // CLICK → ADD SWAB
 let startX = 0;
@@ -306,10 +478,12 @@ panoEl.addEventListener('mouseup', function(e) {
   const coords = viewer.mouseEventToCoords(e);
 
   const swab = {
+    hotspotID: "swab-" + swab_number,
+    pictureID: "panorama",
     pitch: coords[0],
     yaw: coords[1],
     result: null,
-    swabNum: swab_number
+    swabNum: swab_number,
   };
 
   // Preventing sampling too close so that selecting a previous swap becomes a challenge
@@ -324,7 +498,6 @@ panoEl.addEventListener('mouseup', function(e) {
       return;
     }
   }
-
 
   function angularDistance(a, b) {
   const toRad = deg => deg * Math.PI / 180;
@@ -364,12 +537,93 @@ panoEl.addEventListener('mouseup', function(e) {
   too_close = false
 });
 
+//Detecting clicks on the close up images
+let closeUpDragging = false;
+let closeUpStartX = 0;
+let closeUpStartY = 0;
+
+const CLOSEUP_DRAG_THRESHOLD = 5; // pixels
+
+const modalImage = document.getElementById("modalImage");
+
+modalImage.addEventListener("pointerdown", function(e) {
+    closeUpDragging = false;
+    closeUpStartX = e.clientX;
+    closeUpStartY = e.clientY;
+});
+
+modalImage.addEventListener("pointermove", function(e) {
+    const dx = e.clientX - closeUpStartX;
+    const dy = e.clientY - closeUpStartY;
+
+    if (Math.sqrt(dx * dx + dy * dy) > CLOSEUP_DRAG_THRESHOLD) {
+        closeUpDragging = true;
+    }
+});
+
+modalImage.addEventListener("pointerup", function(e) {
+    // Ignore if this was a drag
+    if (closeUpDragging) {
+        closeUpDragging = false;
+        return;
+    }
+
+    const modal = document.getElementById("imageModal");
+    const closeUpId = modal.dataset.hotspotId;
+
+    const rect = modalImage.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const xPercent = x / rect.width;
+    const yPercent = y / rect.height;
+
+    const marker = {
+      hotspotID: "swab-" + swab_number,
+      pictureID: closeUpId,
+      x: xPercent,
+      y: yPercent,
+      result: null,
+      swabNum: swab_number
+    };
+
+    //Detecting overlap with other swabs
+    for (let i = 0; i < swabs.length; i++) {
+      let swab = swabs[i];
+      if (swab.pictureID === marker.pictureID){
+        const dx = swab.x - marker.x;
+        const dy = swab.y - marker.y;
+
+        const minDistance = 0.02;
+
+        if (Math.hypot(dx, dy) < minDistance) {
+            selectSwab(swab.hotspotID);
+            return;
+        }
+      };
+    };
+
+    swabs.push(marker);
+    drawCloseUpMarker(swabs.length - 1)
+
+    let num = swabs.length - 1;
+    const hotspotID = marker.hotspotID;
+    swab_number = swab_number + 1
+
+    logEvent("add_closeUp_swab", {
+      id: hotspotID,
+      x: xPercent,
+      y: yPercent
+    });
+
+    closeUpDragging = false;
+});
+
+
 // DRAW MARKER
 function drawMarker(index, redrawing=false) {
   const swab = swabs[index];
-
-  const hotspotID = "swab-" + index;
-  swab.hotspotID = hotspotID;
 
   if (!redrawing){
     logEvent("add_swab", {
@@ -380,41 +634,78 @@ function drawMarker(index, redrawing=false) {
   }
 
   viewer.addHotSpot({
-    id: hotspotID,
+    id: swab.hotspotID,
+    pictureID: "panorama",
     pitch: swab.pitch,
     yaw: swab.yaw,
     swabNum: swab_number,
     cssClass: 'marker',
     createTooltipFunc: function(hotSpotDiv) {
+      hotSpotDiv.dataset.id = swab.hotspotID;
+      hotSpotDiv.dataset.pictureID = "panorama";
+
       hotSpotDiv.onclick = function(e) {
         e.stopPropagation(); // prevent adding a new swab underneath
-        selectSwab(hotspotID);
+        selectSwab(swab.hotspotID);
       };
     }
   });
 }
 
+//close Up equivalent
+function drawCloseUpMarker(index, redrawing=false) {
+  const swab = swabs[index];
+  
+  const closeUpID = swab.pictureID;
+  const image = document.getElementById("modalImage");
+  const imageLayer = document.getElementById("imageLayer");
+
+  const closeUpMarker = document.createElement("div");
+  closeUpMarker.classList.add("marker", "closeup-marker");
+
+  closeUpMarker.dataset.id = swab.hotspotID;
+  closeUpMarker.dataset.pictureID = swab.pictureID;
+  closeUpMarker.style.left = (swab.x * 100) + "%";
+  closeUpMarker.style.top = (swab.y * 100) + "%";
+
+  closeUpMarker.addEventListener("click", function(event) {
+    event.stopPropagation();
+    selectSwab(swab.hotspotID);
+  })
+
+  imageLayer.appendChild(closeUpMarker);
+}
+
 
 // SELECT SWAB
 function selectSwab(hotspotID) {
-  const id = hotspotID
-  selectedIndex = swabs.findIndex(function (swab) {return swab.hotspotID == id});
+  const id = hotspotID;
+  selectedIndex = swabs.findIndex(swab => swab.hotspotID === id);
+
+  if (selectedIndex === -1) {
+      console.warn("Swab not found:", id);
+      return;
+  }
 
   // Reset all markers
-  document.querySelectorAll('.marker').forEach(m => {
-    m.classList.remove('selected');
+  document.querySelectorAll('.marker').forEach(marker => {
+      marker.classList.remove('selected');
   });
 
-  // Highlight selected
-  document.querySelectorAll('.marker')[selectedIndex].classList.add('selected');
+  // Find the exact marker by ID
+  const selectedMarker = document.querySelector(`.marker[data-id="${id}"]`);
+
+  if (selectedMarker) {
+      selectedMarker.classList.add('selected');
+  }
 
   // Show swab information
   if (!testing_sample){
     swab = swabs[selectedIndex]
     if (swab.result){
-       document.getElementById("result").innerText = "Swab " + swab.swabNum + " - " + swab.result
+       document.getElementById("result").innerText = "Bemonstering " + swab.swabNum + " - " + swab.result
     } else {
-       document.getElementById("result").innerText = "Swab " + swab.swabNum
+       document.getElementById("result").innerText = "Bemonstering " + swab.swabNum
     }
   }
   // Reset the too close variable
@@ -454,8 +745,7 @@ function showRemovalOptions(swab) {
   overlay.style.height = "100vh";
   overlay.style.background = "rgba(0,0,0,0.5)";
   overlay.style.display = "block";
-  overlay.style.position = "absolute";
-  overlay.style.zIndex = "3000";
+  overlay.style.zIndex = "30000";
 
   // --- Modal box ---
   const modal = document.createElement("div");
@@ -485,7 +775,7 @@ function showRemovalOptions(swab) {
   btnIrrelevant.innerText = "Niet wordt veiliggesteld";
   btnIrrelevant.style.margin = "5px";
   btnIrrelevant.onclick = function() {
-    confirmRemoveSwab(swab, "post_test");
+    confirmRemoveSwab(swab, "irrelevant");
   };
 
   // Optional cancel button
@@ -494,6 +784,7 @@ function showRemovalOptions(swab) {
   btnCancel.style.margin = "5px";
   btnCancel.onclick = function() {
     overlay.remove();
+    panorama.focus();
   };
 
   modal.appendChild(text);
@@ -511,33 +802,51 @@ function showRemovalOptions(swab) {
 
 
 function confirmRemoveSwab(swab, reason) {
-  // Remove from array, reset and redraw
-  swabs.splice(selectedIndex, 1);
-  selectedIndex = null;
-  redrawAllMarkers();
+    // Find the swab by its permanent ID, not a possibly stale index
+    const index = swabs.findIndex(item => item.hotspotID === swab.hotspotID);
 
-  // Logging the activity
-  logEvent("remove_swab", {
-    id: swab.hotspotID,
-    reason: reason,
-    result: swab.result
-  });
+    if (index === -1) {
+        console.warn("Cannot remove swab; not found:", swab.hotspotID);
+        return;
+    }
 
-  // Remove UI
-  const overlay = document.getElementById("removeModal");
-  if (overlay) overlay.remove();
-  document.getElementById("result").innerText = ""
-}
+    // Safety check: don't remove a swab currently being tested
+    if (swab.hotspotID === testing_sample) {
+        alert("U kunt een bemonstering die momenteel wordt geanalyseerd niet verwijderen.");
+        return;
+    }
 
-//Redraw markers after deleting a swab
-function redrawAllMarkers() {
-  // Remove all existing markers
-  document.querySelectorAll('.marker').forEach(m => m.remove());
-  
-  // Re-adding the markers
-  swabs.forEach((swab, index) => {
-    drawMarker(index, redrawing=true)
-  })
+    // Remove the corresponding marker(s)
+    document.querySelectorAll(".marker").forEach(marker => {
+        if (marker.dataset.id === swab.hotspotID) {
+            if (marker.classList.contains("closeup-marker")) {
+                // Close-up markers are ordinary HTML elements
+                marker.remove();
+            } else {
+                // Panorama hotspots are managed by Pannellum
+                viewer.removeHotSpot(swab.hotspotID);
+            }
+        }
+    });
+
+    // Remove the swab from the data
+    swabs.splice(index, 1);
+
+    // Log the removal
+    logEvent("remove_swab", {
+        id: swab.hotspotID,
+        reason: reason,
+        result: swab.result
+    });
+
+    // Clear selection and result text
+    selectedIndex = null;
+    document.getElementById("result").innerText = "";
+
+    // Close the removal dialog
+    const overlay = document.getElementById("removeModal");
+    if (overlay) overlay.remove();
+    panorama.focus();
 }
 
 // TEST SWAB
@@ -557,11 +866,12 @@ function testSelected() {
     return;
   }
 
-  swab = swabs[selectedIndex]
-  testing_sample = swab.hotspotID
+  const testedSwab = swabs[selectedIndex]
+  testing_sample = testedSwab.hotspotID
   
-  if (swab.result != null) {
-    alert("Dat monster is al geanalyseerd en bevat onvoldoende DNA.");
+  if (testedSwab.result != null) {
+    alert("Die bemonstering is al geanalyseerd en bevat onvoldoende DNA.");
+    testing_sample = null;
     return;
   }
   
@@ -569,39 +879,48 @@ function testSelected() {
   testBtn.innerText = '🧪  ' + RemainingTests
   
   const result = "onvoldoende DNA";
-  swab.result = result;
+  testedSwab.result = result;
   
   logEvent("test_swab", {
-    id: swab.hotspotID,
-    result: swab.result
+    id: testedSwab.hotspotID,
+    result: testedSwab.result
   });
 
-  let totalTime = 7;
+  let totalTime = 10;
   let time = totalTime;
   let dots = 1;
   let dot = ".";
 
-  document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd"
+  document.getElementById("result").innerText = "Bemonstering " + testedSwab.swabNum + " wordt geanalyseerd"
 
-  const tested_marker = document.querySelectorAll('.marker')[selectedIndex];
-  tested_marker.classList.add('testing');
-  tested_marker.style.setProperty('--progress', 0);
+  const tested_marker = document.querySelector(`.marker[data-id="${testedSwab.hotspotID}"]`);
+
+  if (tested_marker) {
+      tested_marker.classList.add('testing');
+      tested_marker.style.setProperty('--progress', 0);
+  }
+
+  if (tested_marker?.isConnected) {
+    tested_marker.style.setProperty('--progress', 0);
+  }
 
   let CountDown = setInterval(function () {
     let progress = ((totalTime - time + 1) / totalTime) * 100;
     tested_marker.style.setProperty('--progress', progress);
     
-    document.getElementById("result").innerText = "Swab " + swab.swabNum + " wordt geanalyseerd" + dot.repeat(dots);
+    document.getElementById("result").innerText = "Bemonstering " + testedSwab.swabNum + " wordt geanalyseerd" + dot.repeat(dots);
     time--;
     dots++;
 
-    if (time < 0) {
+    if (time < 1) {
       clearInterval(CountDown)
 
-      document.getElementById("result").innerText = "Resultaat: Swab " + swab.swabNum + " bevat " + result;
+      document.getElementById("result").innerText = "Resultaat: Bemonstering " + testedSwab.swabNum + " bevat " + result;
       testing_sample = null;
-      tested_marker.classList.remove('testing');
-      tested_marker.classList.add('marker');
+      if (tested_marker?.isConnected){
+        tested_marker.classList.remove('testing');
+        tested_marker.classList.add('marker');
+      }
     }
   }, 1000)
 }
@@ -696,6 +1015,9 @@ function getYawDifference(current, previous) {
 // Listen for request from Qualtrics
 window.addEventListener("message", function(event) {
   if (event.data === "requestData") {
+    if (event.source !== window.parent || event.data !== "requestData") {
+      return;
+    }
 
     const payload = {
       eventLog: eventLog,
