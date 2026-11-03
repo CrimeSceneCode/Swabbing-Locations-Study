@@ -449,6 +449,8 @@ function displayCaseInfo() {
 let startX = 0;
 let startY = 0;
 let isDragging = false;
+let clickPitch = null;
+let clickYaw = null;
 
 const threshold = 5; // pixels (tweak if needed)
 
@@ -459,7 +461,10 @@ panoEl.addEventListener('mousedown', function(e) {
   startX = e.clientX;
   startY = e.clientY;
   isDragging = false;
-  console.log("DOWN: ", startX, startY);
+  
+  const coords = viewer.mouseEventToCoords(e);
+  clickPitch = coords[0];
+  clickYaw = coords[1];
 });
 
 // MOUSEMOVE → detect drag
@@ -479,15 +484,11 @@ panoEl.addEventListener('mouseup', function(e) {
   //Ignore clicks on UI controls
   if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox") || e.target.closest(".pnlm-hotspot")) {return};
 
-  console.log("UP: ", e.clientX, e.clientY);
-  
-  const coords = viewer.mouseEventToCoords(e);
-
   const swab = {
     hotspotID: "swab-" + swab_number,
     pictureID: "panorama",
-    pitch: coords[0],
-    yaw: coords[1],
+    pitch: clickPitch,
+    yaw: clickYaw,
     result: null,
     swabNum: swab_number,
   };
