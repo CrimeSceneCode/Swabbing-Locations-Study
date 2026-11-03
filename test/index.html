@@ -153,7 +153,7 @@
 
 <br>
 
-<div id="panorama"></div>
+<div id="panorama" tabindex="0"></div>
 
 <div id="imageModal" class="modal">
   <div class="modal-content">
@@ -477,18 +477,6 @@ panoEl.addEventListener('mouseup', function(e) {
 
   //Ignore clicks on UI controls
   if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox") || e.target.closest(".pnlm-hotspot")) {return};
-
-  const rect = panoEl.getBoundingClientRect();
-
-  console.log({
-    clickX: e.clientX,
-    clickY: e.clientY,
-    panoLeft: rect.left,
-    panoTop: rect.top,
-    panoWidth: rect.width,
-    panoHeight: rect.height,
-    coords: viewer.mouseEventToCoords(e)
-  });
   
   const coords = viewer.mouseEventToCoords(e);
 
