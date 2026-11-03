@@ -459,6 +459,7 @@ panoEl.addEventListener('mousedown', function(e) {
   startX = e.clientX;
   startY = e.clientY;
   isDragging = false;
+  console.log("DOWN: ", startX, startY);
 });
 
 // MOUSEMOVE → detect drag
@@ -477,6 +478,8 @@ panoEl.addEventListener('mouseup', function(e) {
 
   //Ignore clicks on UI controls
   if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox") || e.target.closest(".pnlm-hotspot")) {return};
+
+  console.log("UP: ", e.clientX, e.clientY);
   
   const coords = viewer.mouseEventToCoords(e);
 
