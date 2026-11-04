@@ -423,28 +423,30 @@ viewer.on('load', function () {
 });
 
 //Displaying the case info
-function displayCaseInfo() {
-  const caseInfoModal = document.getElementById("caseInfoModal");
-  caseInfoModal.style.display = "flex";
+const caseInfoModal = document.getElementById("caseInfoModal");
 
-  //Logging the opening of the case info
-  logEvent("Open case file info");
+function closeCaseInfo() {
+    if (caseInfoModal.style.display === "none") return;
 
-  //Adding the close button functionality
-  document.getElementById("closeCaseInfo").addEventListener("click", () => {
-      caseInfoModal.style.display = "none";
-      panorama.focus();
-      logEvent("Close case file info");
-  });
-
-  caseInfoModal.addEventListener("click", (event) => {
-      if (event.target === caseInfoModal) {
-          caseInfoModal.style.display = "none";
-          panorama.focus();
-      }
-  });
+    caseInfoModal.style.display = "none";
+    panorama.focus();
+    logEvent("Close case file info");
 }
 
+document.getElementById("closeCaseInfo").addEventListener("click", closeCaseInfo);
+
+caseInfoModal.addEventListener("click", (event) => {
+    if (event.target === caseInfoModal) {
+        closeCaseInfo();
+    }
+});
+
+function displayCaseInfo() {
+    caseInfoModal.style.display = "flex";
+    logEvent("Open case file info");
+}
+
+  
 // CLICK → ADD SWAB
 let startX = 0;
 let startY = 0;
