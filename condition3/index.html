@@ -622,7 +622,8 @@ modalImage.addEventListener("pointerup", function(e) {
     logEvent("add_closeUp_swab", {
       id: hotspotID,
       x: xPercent,
-      y: yPercent
+      y: yPercent,
+      pictureID: closeUpId
     });
 
     closeUpDragging = false;
@@ -637,7 +638,8 @@ function drawMarker(index, redrawing=false) {
     logEvent("add_swab", {
       id: swab.hotspotID,
       pitch: swab.pitch,
-      yaw: swab.yaw
+      yaw: swab.yaw,
+      pictureID: "panorama"
     });
   }
 
