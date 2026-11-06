@@ -815,7 +815,7 @@ function testSelected() {
   testing_sample = testedSwab.hotspotID
   
   if (testedSwab.result != null) {
-    alert("Die bemonstering is al geanalyseerd en bevat onvoldoende DNA.");
+    alert("Die bemonstering is al geanalyseerd en bevat voldoende DNA.");
     testing_sample = null;
     return;
   }
@@ -823,7 +823,7 @@ function testSelected() {
   RemainingTests = RemainingTests - 1;
   testBtn.innerText = '🧪  ' + RemainingTests
   
-  const result = "onvoldoende DNA";
+  const result = "voldoende DNA";
   testedSwab.result = result;
   
   logEvent("test_swab", {
