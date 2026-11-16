@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Crime Scene</title>
+
+  <!-- Pannellum -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.js"></script>
+  <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
+  
+  <style>
+    body { font-family: Georgia; text-align: center; }
+
+    .marker {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        background: rgb(199, 188, 188);
+        border-radius: 50%;
+        border: 2px solid white;
+        opacity: 0.9;
+        cursor: pointer;
+      }
+
+    .closeup-marker {
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      box-sizing: border-box;
+    }
+
+    .marker.selected {
+        border: 2px solid blue;
+    }
+
+    .testing {
+      transition: background 0.1s linear;
+      background: linear-gradient(
+        to top,
+        orange 0%,
+        orange calc(var(--progress, 0) * 1%),
+        rgb(199, 188, 188) calc(var(--progress, 0) * 1%),
+        rgb(199, 188, 188) 100%
+      );
+
+      overflow: hidden;
+
+    }
+
+    #panorama {
+        width: calc(100vw - 100px);
+        height: calc(100vh - 100px);
+        aspect-ratio: 2 / 1;
+        margin: auto;
+        position: relative;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 110px;
+        right: 110px;
+        top: 26px;
+        bottom: 75px;
+        background: rgba(0,0,0,0.8);
+    }
+
+    .modal-content {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        background: white;
+        padding: 35px 2px 2px 2px;
+        border-radius: 10px;
+    }
+
+    .image-container {
+        position: relative;
+        display: inline-block;
+      }
+      
+      #imageLayer {
+        position: relative;
+        display: inline-block;
+    }
+
+    #modalImage {
+        max-width: 100%;
+        max-height: 90vh;
+        display: block;
+        cursor: grab;
+    }
+
+    #modalImage:active {cursor: grabbing;}
+
+    #closeModal {
+        position: absolute;
+        left: 10px;
+        top: 3px;
+        font-size: 25px;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    #caseInfoModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.8);
+
+    align-items: center;
+    justify-content: center;
+    }
+
+    .case-info-box {
+        position: relative;
+        background: white;
+        color: #222;
+        width: min(700px, 90vw);
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 30px;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    .close-button {
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        font-size: 28px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    #caseInfoContent {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        line-height: 1.6;
+    }
+
+  </style>
+</head>
+<body>
+
+<br>
+
+<div id="panorama" tabindex="0"></div>
+
+<div id="imageModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="closeModal">&times;</span>
+
+    <h2 id="imageTitle"></h2> 
+
+    <div id="imageContainer" style="overflow:hidden;" class="image-container">
+      <div id="imageLayer">
+        <img id="modalImage" src="" alt="">
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="caseInfoModal" class="modal">
+    <div class="case-info-box">
+        <button id="closeCaseInfo" class="close-button">
+            &times;
+        </button>
+
+        <h2>Zaaksinformatie</h2>
+
+        <div id="caseInfoContent">
+          <p>The police received the report of a possible burglary in a home office on Jun 25th, at around 21.50 hours. The report is filed by Hendrik van Kampen. He stated that he frequently walks the dog of his daughter, Jolanda, when she is busy with her work as an investigative journalist. He also has a key to her house to be able to do so. Hendrik lives a couple of blocks away from Jolanda. Jolanda had asked him earlier that day if he could walk the dog, as she was busy at work. Hendrik had come by and, when he had wanted to grab a toy from the garden, seen that the office in the garden was ransacked. Jolanda was typically a tidy person, especially as she sometimes used the office to receive guests and interview people. Hendrik had tried calling his daughter, but he could not get a hold of her. That happened occasionally when she was working on an important story. Jolanda had told Hendrik earlier that she was working on a story about recent shooting incidents. She had recently found a criminal source that was willing to talk to her about these shootings. 
+
+            The office is located in the back of the garden of Jolanda and is only accessible via her garden. The garden is fenced off. There is an alley behind the office that is poorly lit and exclusively provides access to the gardens in Jolanda's street. Both neighbors turn out to be away on vacation. There are also no security cameras that record the garden or the alley behind it. Hendrik further explained that he knew that Jolanda used the office to work in and to store part of her belongings. Hendrik had not been in the office for a while, so he could not tell the police whether items were missing or left behind. Only Jolanda and Mark, her partner, have keys to the office. Mark had gone away on vacation with friends a few days ago. Hendrik did not know where the keys of Jolanda and Mark are. He could only say that the bowl that usually contains keys when Hendrik visits his daughter was now empty. Hendrik noticed nothing that was out of the ordinary inside the house. There are also no clearly visible signs of a forced entry nor other signs of disturbance in the house or garden. The door of the office turns out to be unlocked when the police officers arrive. The uniformed officers have not entered the office.  
+          </p>
+        </div>
+    </div>
+</div>
+
+<br>
+<p id="result"></p>
+
+<script>
+// For zooming in on the close up pictures
+const image = document.getElementById("imageLayer");
+
+const panzoom = Panzoom(image, {
+    maxScale: 6,
+    minScale: 1,
+    contain: "outside"
+});
+
+document.getElementById("imageContainer")
+    .addEventListener("wheel", panzoom.zoomWithWheel);
+
+
+// For storing the data and user behaviour
+let eventLog = [];
+let starttime = Date.now();
+let RemainingTests = 6;
+let selectedSwab = null;
+
+function logEvent(type, details = {}) {
+  eventLog.push({
+    type: type, 
+    time: Date.now() - starttime,
+    ...details
+  });
+}
+
+// For overlapping swabbing detection
+let too_close = false; 
+
+function getDynamicThreshold() {
+  const hfov = viewer.getHfov();
+  const baseThreshold = 1.5;
+  return baseThreshold * Math.sqrt(hfov / 100);
+}
+
+// General variables
+let swabs = [];
+let selectedIndex = null;
+let testing_sample = null;
+let swab_number = 1;
+
+// INIT PANORAMA
+const viewer = pannellum.viewer('panorama', {
+  "default": {
+    firstScene: "360-degree",
+    sceneFadeDuration: 1000,
+    autoLoad: true
+  },
+
+  "scenes": {
+    "360-degree": {
+      "yaw": 111,
+      "pitch": -21,
+      "hfov": 150,
+      "type": "equirectangular",
+      "panorama": "../PD_Drone final.jpg",
+    },
+  }
+  });
+
+viewer.addHotSpot({
+  id: 'topDrawers',
+  pitch: -26,
+  yaw: 112,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "../TopDrawersCropped.jpg",
+    id: 'topDrawers'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'middleDrawers',
+  pitch: -31,
+  yaw: 112,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "../MiddleDrawersCropped.jpg",
+    id: 'middleDrawers'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'bottomDrawers',
+  pitch: -36,
+  yaw: 112,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "../BottomDrawersCropped.jpg",
+    id: 'bottomDrawers'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'Door',
+  pitch: 4,
+  yaw: 89,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "../EntranceCropped.jpg",
+    id: 'Door'
+  }
+});
+
+viewer.addHotSpot({
+  id: 'Window',
+  pitch: 6,
+  yaw: 14,
+  type: "info",
+  clickHandlerFunc: showImage,
+  clickHandlerArgs: {
+    image: "../Window.jpg",
+    id: 'Window'
+  }
+});
+
+viewer.on("load", function () {
+  logEvent("sessionStart", {
+  yaw: viewer.getYaw(),
+  pitch: viewer.getPitch(),
+  hfov: viewer.getHfov()
+  });
+})
+
+const panorama = document.getElementById("panorama");
+panorama.focus();
+
+function showImage(event, args) {
+    const modal = document.getElementById("imageModal");
+    const image = document.getElementById("modalImage");
+
+    modal.style.display = "block";
+
+    image.src = args.image;
+    image.dataset.image = args.image;
+    modal.dataset.hotspotId = args.id;
+    closeUpID = args.id;
+
+    const markers = document.querySelectorAll(".closeup-marker");
+    markers.forEach(marker => {
+        if (marker.dataset.pictureID === closeUpID) {
+            marker.style.display = "block";
+        } else {
+            marker.style.display = "none";
+        }
+    });
+
+    logEvent("openCloseUp", {
+        id: args.id,
+    });
+}
+
+function closeImage() {
+    const modal = document.getElementById("imageModal");
+    const panorama = document.getElementById("panorama");
+
+    logEvent("closeCloseUp", {
+        id: modal.dataset.hotspotId
+    });
+
+    modal.style.display = "none";
+
+    //Return focus to the panorama
+    panorama.focus();
+    panzoom.reset();
+}
+
+document.getElementById("closeModal").onclick = function () {
+    closeImage();
+};
+
+window.onclick = function(event) {
+    const modal = document.getElementById("imageModal");
+
+    if (event.target === modal) {
+        closeImage();
+    }
+};
+
+let testBtn;
+
+viewer.on('load', function () {
+  const panoContainer = document.getElementById('panorama');
+
+  // Create a wrapper that sits on top of the viewer
+  const customControls = document.createElement('div');
+  customControls.style.position = 'absolute';
+  customControls.style.top = '100px'; // push BELOW zoom/fullscreen buttons
+  customControls.style.left = '5px';
+  customControls.style.display = 'flex';
+  customControls.style.flexDirection = 'column';
+  customControls.style.gap = '6px';
+  customControls.style.zIndex = '1000';
+  customControls.className = 'custom-controls';
+
+  // --- Buttons ---
+  testBtn = document.createElement('button');
+  testBtn.innerText = '🧪  ' + RemainingTests;
+  testBtn.onclick = testSelected;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.innerText = '🗑';
+  removeBtn.onclick = RequestRemoveSwab;
+
+  caseInfoBtn = document.createElement("button");
+  caseInfoBtn.innerText = "📁";
+  caseInfoBtn.onclick = displayCaseInfo;
+
+  // Style (optional but helps readability)
+  [testBtn, removeBtn, caseInfoBtn].forEach(btn => {
+    btn.style.padding = '6px';
+    btn.style.background = 'rgba(0,0,0,0.6)';
+    btn.style.color = 'white';
+    btn.style.border = '1px solid white';
+    btn.style.cursor = 'pointer';
+  });
+
+  customControls.appendChild(caseInfoBtn);
+  customControls.appendChild(testBtn);
+  customControls.appendChild(removeBtn);
+
+  // IMPORTANT: make parent relative so absolute positioning works
+  panoContainer.style.position = 'relative';
+  panoContainer.appendChild(customControls);
+});
+
+//Displaying the case info
+const caseInfoModal = document.getElementById("caseInfoModal");
+
+function closeCaseInfo() {
+    if (caseInfoModal.style.display === "none") return;
+
+    caseInfoModal.style.display = "none";
+    panorama.focus();
+    logEvent("Close case file info");
+}
+
+document.getElementById("closeCaseInfo").addEventListener("click", closeCaseInfo);
+
+caseInfoModal.addEventListener("click", (event) => {
+    if (event.target === caseInfoModal) {
+        closeCaseInfo();
+    }
+});
+
+function displayCaseInfo() {
+    caseInfoModal.style.display = "flex";
+    logEvent("Open case file info");
+}
+
+  
+// CLICK → ADD SWAB
+let startX = 0;
+let startY = 0;
+let isDragging = false;
+let clickPitch = null;
+let clickYaw = null;
+
+const threshold = 5; // pixels (tweak if needed)
+
+const panoEl = document.getElementById('panorama');
+
+// MOUSEDOWN → record starting point
+panoEl.addEventListener('mousedown', function(e) {
+  startX = e.clientX;
+  startY = e.clientY;
+  isDragging = false;
+
+  const coords = viewer.mouseEventToCoords(e);
+  clickPitch = coords[0];
+  clickYaw = coords[1];
+});
+
+// MOUSEMOVE → detect drag
+panoEl.addEventListener('mousemove', function(e) {
+  const dx = Math.abs(e.clientX - startX);
+  const dy = Math.abs(e.clientY - startY);
+
+  if (dx > threshold || dy > threshold) {
+    isDragging = true;
+  }
+});
+
+// MOUSEUP → decide click vs drag
+panoEl.addEventListener('mouseup', function(e) {
+  if (isDragging) return; // ignore drags
+
+  //Ignore clicks on UI controls
+  if (e.target.closest('.pnlm-controls') || e.target.closest(".custom-controls") || e.target.closest("#removeChoiceBox") || e.target.closest(".pnlm-hotspot")) {return};
+
+  const swab = {
+    hotspotID: "swab-" + swab_number,
+    pictureID: "panorama",
+    pitch: clickPitch,
+    yaw: clickYaw,
+    result: null,
+    swabNum: swab_number,
+  };
+
+  // Preventing sampling too close so that selecting a previous swap becomes a challenge
+  const swab_overlap_threshold = getDynamicThreshold();
+
+  for (let i = 0; i < swabs.length; i++) {
+    const dist = angularDistance(swab, swabs[i]);
+
+    if (dist < swab_overlap_threshold) {
+      too_close = true;
+      selectSwab(swabs[i].hotspotID);
+      return;
+    }
+  }
+
+  function angularDistance(a, b) {
+  const toRad = deg => deg * Math.PI / 180;
+
+  const pitch1 = toRad(a.pitch);
+  const yaw1 = toRad(a.yaw);
+  const pitch2 = toRad(b.pitch);
+  const yaw2 = toRad(b.yaw);
+
+  const dYaw = yaw2 - yaw1;
+
+  const angle = Math.acos(
+    Math.sin(pitch1) * Math.sin(pitch2) +
+    Math.cos(pitch1) * Math.cos(pitch2) * Math.cos(dYaw)
+  );
+
+  return angle * (180 / Math.PI); // back to degrees
+}
+
+  if (!too_close){
+    swabs.push(swab);
+    drawMarker(swabs.length - 1);
+    swab_number = swab_number + 1
+  }
+
+  // Reset all markers
+  document.querySelectorAll('.marker').forEach(m => {
+    m.classList.remove('selected');
+  });
+
+  if (!testing_sample){
+    document.getElementById("result").innerText = ""
+  }
+
+  //Resetting variables
+  selectedIndex = null;
+  too_close = false
+});
+
+//Detecting clicks on the close up images
+let closeUpDragging = false;
+let closeUpStartX = 0;
+let closeUpStartY = 0;
+
+const CLOSEUP_DRAG_THRESHOLD = 5; // pixels
+
+const modalImage = document.getElementById("modalImage");
+
+modalImage.addEventListener("pointerdown", function(e) {
+    closeUpDragging = false;
+    closeUpStartX = e.clientX;
+    closeUpStartY = e.clientY;
+});
+
+modalImage.addEventListener("pointermove", function(e) {
+    const dx = e.clientX - closeUpStartX;
+    const dy = e.clientY - closeUpStartY;
+
+    if (Math.sqrt(dx * dx + dy * dy) > CLOSEUP_DRAG_THRESHOLD) {
+        closeUpDragging = true;
+    }
+});
+
+modalImage.addEventListener("pointerup", function(e) {
+    // Ignore if this was a drag
+    if (closeUpDragging) {
+        closeUpDragging = false;
+        return;
+    }
+
+    const modal = document.getElementById("imageModal");
+    const closeUpId = modal.dataset.hotspotId;
+
+    const rect = modalImage.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const xPercent = x / rect.width;
+    const yPercent = y / rect.height;
+
+    const marker = {
+      hotspotID: "swab-" + swab_number,
+      pictureID: closeUpId,
+      x: xPercent,
+      y: yPercent,
+      result: null,
+      swabNum: swab_number
+    };
+
+    //Detecting overlap with other swabs
+    for (let i = 0; i < swabs.length; i++) {
+      let swab = swabs[i];
+      if (swab.pictureID === marker.pictureID){
+        const dx = swab.x - marker.x;
+        const dy = swab.y - marker.y;
+
+        const minDistance = 0.02;
+
+        if (Math.hypot(dx, dy) < minDistance) {
+            selectSwab(swab.hotspotID);
+            return;
+        }
+      };
+    };
+
+    swabs.push(marker);
+    drawCloseUpMarker(swabs.length - 1)
+
+    let num = swabs.length - 1;
+    const hotspotID = marker.hotspotID;
+    swab_number = swab_number + 1
+
+    logEvent("add_closeUp_swab", {
+      id: hotspotID,
+      x: xPercent,
+      y: yPercent,
+      pictureID: closeUpId
+    });
+
+    closeUpDragging = false;
+});
+
+
+// DRAW MARKER
+function drawMarker(index, redrawing=false) {
+  const swab = swabs[index];
+
+  if (!redrawing){
+    logEvent("add_swab", {
+      id: swab.hotspotID,
+      pitch: swab.pitch,
+      yaw: swab.yaw,
+      pictureID: "panorama"
+    });
+  }
+
+  viewer.addHotSpot({
+    id: swab.hotspotID,
+    pictureID: "panorama",
+    pitch: swab.pitch,
+    yaw: swab.yaw,
+    swabNum: swab_number,
+    cssClass: 'marker',
+    createTooltipFunc: function(hotSpotDiv) {
+      hotSpotDiv.dataset.id = swab.hotspotID;
+      hotSpotDiv.dataset.pictureID = "panorama";
+
+      hotSpotDiv.onclick = function(e) {
+        e.stopPropagation(); // prevent adding a new swab underneath
+        selectSwab(swab.hotspotID);
+      };
+    }
+  });
+}
+
+//close Up equivalent
+function drawCloseUpMarker(index, redrawing=false) {
+  const swab = swabs[index];
+  
+  const closeUpID = swab.pictureID;
+  const image = document.getElementById("modalImage");
+  const imageLayer = document.getElementById("imageLayer");
+
+  const closeUpMarker = document.createElement("div");
+  closeUpMarker.classList.add("marker", "closeup-marker");
+
+  closeUpMarker.dataset.id = swab.hotspotID;
+  closeUpMarker.dataset.pictureID = swab.pictureID;
+  closeUpMarker.style.left = (swab.x * 100) + "%";
+  closeUpMarker.style.top = (swab.y * 100) + "%";
+
+  closeUpMarker.addEventListener("click", function(event) {
+    event.stopPropagation();
+    selectSwab(swab.hotspotID);
+  })
+
+  imageLayer.appendChild(closeUpMarker);
+}
+
+
+// SELECT SWAB
+function selectSwab(hotspotID) {
+  const id = hotspotID;
+  selectedIndex = swabs.findIndex(swab => swab.hotspotID === id);
+
+  if (selectedIndex === -1) {
+      console.warn("Swab not found:", id);
+      return;
+  }
+
+  // Reset all markers
+  document.querySelectorAll('.marker').forEach(marker => {
+      marker.classList.remove('selected');
+  });
+
+  // Find the exact marker by ID
+  const selectedMarker = document.querySelector(`.marker[data-id="${id}"]`);
+
+  if (selectedMarker) {
+      selectedMarker.classList.add('selected');
+  }
+
+  // Show swab information
+  if (!testing_sample){
+    swab = swabs[selectedIndex]
+    if (swab.result){
+       document.getElementById("result").innerText = "Sample " + swab.swabNum + " - " + swab.result
+    } else {
+       document.getElementById("result").innerText = "Sample " + swab.swabNum
+    }
+  }
+  // Reset the too close variable
+  too_close = false
+}
+
+// REMOVE SWAB
+function RequestRemoveSwab(){
+  if (selectedIndex === null){
+    alert("Select a sample first.");
+    return;
+  }
+
+  const swab = swabs[selectedIndex];
+
+  //Prevent the removal of a swab that is currently being tested
+  if (swab.hotspotID === testing_sample) {
+    alert("You cannot remove a sample that is currently being analysed.");
+    return;
+  }
+
+  showRemovalOptions(swab);
+}
+
+function showRemovalOptions(swab) {
+  // Prevent duplicates
+  const existing = document.getElementById("removeModal");
+  if (existing) existing.remove();
+
+  // --- Overlay (dark background) ---
+  const overlay = document.createElement("div");
+  overlay.id = "removeModal";
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100vw";
+  overlay.style.height = "100vh";
+  overlay.style.background = "rgba(0,0,0,0.5)";
+  overlay.style.display = "block";
+  overlay.style.zIndex = "30000";
+
+  // --- Modal box ---
+  const modal = document.createElement("div");
+  modal.style.background = "white";
+  modal.style.padding = "10px";
+  modal.style.borderRadius = "10px";
+  modal.style.textAlign = "center";
+  modal.style.minWidth = "300px";
+  modal.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
+  modal.style.position = "absolute";
+  modal.style.top = "20px";
+  modal.style.left = "50%";
+  modal.style.transform = "translateX(-50%)";
+
+  const text = document.createElement("p");
+  text.innerText = "I am removing this sample because:";
+
+  // --- Buttons ---
+  const btnMisplaced = document.createElement("button");
+  btnMisplaced.innerText = "It was misplaced";
+  btnMisplaced.style.margin = "5px";
+  btnMisplaced.onclick = function() {
+    confirmRemoveSwab(swab, "misplaced");
+  };
+
+  const btnIrrelevant = document.createElement("button");
+  btnIrrelevant.innerText = "It will not be secured";
+  btnIrrelevant.style.margin = "5px";
+  btnIrrelevant.onclick = function() {
+    confirmRemoveSwab(swab, "irrelevant");
+  };
+
+  // Optional cancel button
+  const btnCancel = document.createElement("button");
+  btnCancel.innerText = "Cancel";
+  btnCancel.style.margin = "5px";
+  btnCancel.onclick = function() {
+    overlay.remove();
+    panorama.focus();
+  };
+
+  modal.appendChild(text);
+  modal.appendChild(btnMisplaced);
+  modal.appendChild(btnCancel);
+  modal.appendChild(btnIrrelevant);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Prevent clicks from reaching panorama
+  overlay.addEventListener('mousedown', e => e.stopPropagation());
+  overlay.addEventListener('mouseup', e => e.stopPropagation());
+}
+
+
+function confirmRemoveSwab(swab, reason) {
+    // Find the swab by its permanent ID, not a possibly stale index
+    const index = swabs.findIndex(item => item.hotspotID === swab.hotspotID);
+
+    if (index === -1) {
+        console.warn("Cannot remove swab; not found:", swab.hotspotID);
+        return;
+    }
+
+    // Safety check: don't remove a swab currently being tested
+    if (swab.hotspotID === testing_sample) {
+        alert("You cannot remove a sample that is currently being analysed.");
+        return;
+    }
+
+    // Remove the corresponding marker(s)
+    document.querySelectorAll(".marker").forEach(marker => {
+        if (marker.dataset.id === swab.hotspotID) {
+            if (marker.classList.contains("closeup-marker")) {
+                // Close-up markers are ordinary HTML elements
+                marker.remove();
+            } else {
+                // Panorama hotspots are managed by Pannellum
+                viewer.removeHotSpot(swab.hotspotID);
+            }
+        }
+    });
+
+    // Remove the swab from the data
+    swabs.splice(index, 1);
+
+    // Log the removal
+    logEvent("remove_swab", {
+        id: swab.hotspotID,
+        reason: reason,
+        result: swab.result
+    });
+
+    // Clear selection and result text
+    selectedIndex = null;
+    document.getElementById("result").innerText = "";
+
+    // Close the removal dialog
+    const overlay = document.getElementById("removeModal");
+    if (overlay) overlay.remove();
+    panorama.focus();
+}
+
+// TEST SWAB
+function testSelected() {
+  if (selectedIndex === null) {
+    alert("Select a sample first.");
+    return;
+  }
+
+  if (testing_sample) {
+    alert("A sample is already being analysed at this moment.");
+    return;
+  }
+
+  if (RemainingTests === 0) {
+    alert("You have used all available rapid tests.");
+    return;
+  }
+
+  const testedSwab = swabs[selectedIndex]
+  testing_sample = testedSwab.hotspotID
+  
+  if (testedSwab.result != null) {
+    alert("That sample has already been analysed and contains sufficient DNA.");
+    testing_sample = null;
+    return;
+  }
+  
+  RemainingTests = RemainingTests - 1;
+  testBtn.innerText = '🧪  ' + RemainingTests
+  
+  const result = "sufficient DNA";
+  testedSwab.result = result;
+  
+  logEvent("test_swab", {
+    id: testedSwab.hotspotID,
+    result: testedSwab.result
+  });
+
+  let totalTime = 10;
+  let time = totalTime;
+  let dots = 1;
+  let dot = ".";
+
+  document.getElementById("result").innerText = "Sample " + testedSwab.swabNum + " is being analysed"
+
+  const tested_marker = document.querySelector(`.marker[data-id="${testedSwab.hotspotID}"]`);
+
+  if (tested_marker) {
+      tested_marker.classList.add('testing');
+      tested_marker.style.setProperty('--progress', 0);
+  }
+
+  if (tested_marker?.isConnected) {
+    tested_marker.style.setProperty('--progress', 0);
+  }
+
+  let CountDown = setInterval(function () {
+    let progress = ((totalTime - time + 1) / totalTime) * 100;
+    tested_marker.style.setProperty('--progress', progress);
+    
+    document.getElementById("result").innerText = "Sample " + testedSwab.swabNum + " is being analysed" + dot.repeat(dots);
+    time--;
+    dots++;
+
+    if (time < 1) {
+      clearInterval(CountDown)
+
+      document.getElementById("result").innerText = "Result: Sample " + testedSwab.swabNum + " contains " + result;
+      testing_sample = null;
+      if (tested_marker?.isConnected){
+        tested_marker.classList.remove('testing');
+        tested_marker.classList.add('marker');
+      }
+    }
+  }, 1000)
+}
+
+function Showresults() {
+  for (let i = 0; i < swabs.length; i++) {
+    console.log(swabs[i])
+  }
+
+  for (let i = 0; i < eventLog.length; i++) {
+    console.log(eventLog[i])
+  }
+}
+
+// Listen for request from Qualtrics
+window.addEventListener("message", function(event) {
+  if (event.data === "requestData") {
+    if (event.source !== window.parent || event.data !== "requestData") {
+      return;
+    }
+
+    const payload = {
+      eventLog: eventLog,
+      finalSwabs: swabs
+    };
+
+    // Send data back to Qualtrics
+    window.parent.postMessage(payload, "*");
+  }
+});
+</script>
+
+</body>
+</html>
